@@ -1,0 +1,192 @@
+########
+# Copyright (c) 2014 GigaSpaces Technologies Ltd. All rights reserved
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#        http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+#    * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#    * See the License for the specific language governing permissions and
+#    * limitations under the License.
+
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+# STOLEN FROM HERE: https://raw.githubusercontent.com/cloudify-cosmo/cloudify-plugins-common/master/packaging/Vagrantfile
+
+AWS_ACCESS_KEY_ID = ENV['AWS_ACCESS_KEY_ID']
+AWS_ACCESS_KEY = ENV['AWS_ACCESS_KEY']
+GITHUB_USERNAME = ENV['GITHUB_USERNAME']
+GITHUB_PASSWORD = ENV['GITHUB_PASSWORD']
+PLUGIN_NAME = ENV['PLUGIN_NAME']
+PLUGIN_TAG_NAME = ENV['PLUGIN_TAG_NAME']
+PLUGIN_S3_FOLDER = ENV['PLUGIN_S3_FOLDER']
+
+CENTOS_FINAL_BOX_NAME = 'chef/centos-6.5'
+CENTOS7_OFFICIAL_BOX_URL = 'http://cloud.centos.org/centos/7/vagrant/x86_64/images/CentOS-7.box'
+
+
+Vagrant.configure('2') do |config|
+
+  config.vm.define "centos_final_plugin_wheel" do |centos_final|
+    #dummy box, will be overriden
+    centos_final.vm.box = "dummy"
+    centos_final.vm.box_url = "https://github.com/mitchellh/vagrant-aws/raw/master/dummy.box"
+    centos_final.vm.provider :aws do |aws, override|
+      aws.access_key_id = AWS_ACCESS_KEY_ID
+      aws.secret_access_key = AWS_ACCESS_KEY
+      # unofficial centos6.4 64bit box
+      aws.ami = "ami-3b39ee4c"
+      aws.region = "eu-west-1"
+      aws.instance_type = "m3.medium"
+      aws.keypair_name = "vagrant_build"
+      override.ssh.username = "root"
+      override.ssh.private_key_path = "~/.ssh/aws/vagrant_centos_build.pem"
+      override.nfs.functional = false
+      aws.tags = { "Name" => "vagrant centos 6.5 plugin build" }
+      aws.security_groups = "vagrant_linux_build"
+    end
+    #need to sync folders
+    centos_final.vm.synced_folder "../", "/packaging", create: true
+    centos_final.vm.provision "shell" do |s|
+      s.path = "provision_plugin.sh"
+      s.args = "#{GITHUB_USERNAME} #{GITHUB_PASSWORD} #{AWS_ACCESS_KEY_ID} #{AWS_ACCESS_KEY} #{PLUGIN_NAME} #{PLUGIN_TAG_NAME} #{PLUGIN_S3_FOLDER}"
+      s.privileged = false
+    end
+  end
+
+  config.vm.define "centos_core_plugin_wheel" do |centos_core|
+    #dummy box, will be overriden
+    centos_core.vm.box = "dummy"
+    centos_core.vm.box_url = "https://github.com/mitchellh/vagrant-aws/raw/master/dummy.box"
+    centos_core.vm.provider :aws do |aws, override|
+      aws.access_key_id = AWS_ACCESS_KEY_ID
+      aws.secret_access_key = AWS_ACCESS_KEY
+      aws.ami = "ami-0726a974"
+      aws.region = "eu-west-1"
+      aws.instance_type = "m3.medium"
+      aws.keypair_name = "vagrant_build"
+      override.ssh.username = "ec2-user"
+      override.ssh.private_key_path = "~/.ssh/aws/vagrant_build.pem"
+      override.nfs.functional = false
+      aws.tags = { "Name" => "vagrant centos 7.0 plugin build" }
+      aws.security_groups = "vagrant_linux_build"
+    end
+    centos_core.vm.synced_folder "../", "/packaging", create: true
+    centos_core.vm.provision "shell" do |s|
+      s.path = "provision_plugin.sh"
+      s.args = "#{GITHUB_USERNAME} #{GITHUB_PASSWORD} #{AWS_ACCESS_KEY_ID} #{AWS_ACCESS_KEY} #{PLUGIN_NAME} #{PLUGIN_TAG_NAME} #{PLUGIN_S3_FOLDER}"
+      s.privileged = false
+    end
+  end
+
+  config.vm.define "redhat7_plugin_wheel" do |redhat7|
+    #dummy box, will be overriden
+    redhat7.vm.box = "dummy"
+    redhat7.vm.box_url = "https://github.com/mitchellh/vagrant-aws/raw/master/dummy.box"
+    redhat7.vm.provider :aws do |aws, override|
+      aws.access_key_id = AWS_ACCESS_KEY_ID
+      aws.secret_access_key = AWS_ACCESS_KEY
+      aws.ami = "ami-c1c699a7"
+      aws.region = "eu-west-1"
+      aws.instance_type = "m3.medium"
+      aws.keypair_name = "vagrant_build"
+      aws.user_data = "#!/bin/bash\nsed -i -e 's/^Defaults.*requiretty/# Defaults requiretty/g' /etc/sudoers"
+      override.ssh.username = "ec2-user"
+      override.ssh.private_key_path = "~/.ssh/aws/vagrant_build.pem"
+      override.nfs.functional = false
+      aws.tags = { "Name" => "vagrant redhat 7.1 plugin build" }
+      aws.security_groups = "vagrant_linux_build"
+    end
+    redhat7.vm.synced_folder "../", "/packaging", create: true
+    redhat7.vm.provision "shell" do |s|
+      s.path = "provision_plugin.sh"
+      s.args = "#{GITHUB_USERNAME} #{GITHUB_PASSWORD} #{AWS_ACCESS_KEY_ID} #{AWS_ACCESS_KEY} #{PLUGIN_NAME} #{PLUGIN_TAG_NAME} #{PLUGIN_S3_FOLDER}"
+      s.privileged = false
+    end
+  end
+
+  config.vm.define "ubuntu_trusty_plugin_wheel" do |ubuntu_trusty|
+    # dummy box, will be overriden
+    ubuntu_trusty.vm.box = "dummy"
+    ubuntu_trusty.vm.box_url = "https://github.com/mitchellh/vagrant-aws/raw/master/dummy.box"
+    ubuntu_trusty.vm.provider :aws do |aws, override|
+      aws.access_key_id = AWS_ACCESS_KEY_ID
+      aws.secret_access_key = AWS_ACCESS_KEY
+      # official ubuntu 14.04 64bit box
+      aws.ami = "ami-f0b11187"
+      aws.region = "eu-west-1"
+      aws.instance_type = "m3.medium"
+      aws.keypair_name = "vagrant_build"
+      override.ssh.username = "ubuntu"
+      override.ssh.private_key_path = "~/.ssh/aws/vagrant_build.pem"
+      override.nfs.functional = false
+      aws.tags = { "Name" => "vagrant ubuntu trusty plugin build" }
+      aws.security_groups = "vagrant_cfy_build"
+    end
+    ubuntu_trusty.vm.synced_folder "../", "/packaging", create: true
+    ubuntu_trusty.vm.provision "shell" do |s|
+      s.path = "provision_plugin.sh"
+      s.args = "#{GITHUB_USERNAME} #{GITHUB_PASSWORD} #{AWS_ACCESS_KEY_ID} #{AWS_ACCESS_KEY} #{PLUGIN_NAME} #{PLUGIN_TAG_NAME} #{PLUGIN_S3_FOLDER}"
+      s.privileged = false
+    end
+  end
+
+  config.vm.define "ubuntu_precise_plugin_wheel" do |ubuntu_precise|
+    # dummy box, will be overriden
+    ubuntu_precise.vm.box = "dummy"
+    ubuntu_precise.vm.box_url = "https://github.com/mitchellh/vagrant-aws/raw/master/dummy.box"
+    ubuntu_precise.vm.provider :aws do |aws, override|
+      aws.access_key_id = AWS_ACCESS_KEY_ID
+      aws.secret_access_key = AWS_ACCESS_KEY
+      # official ubuntu 12.04 64bit box
+      aws.ami = "ami-036eaa74"
+      aws.region = "eu-west-1"
+      aws.instance_type = "m3.medium"
+      aws.keypair_name = "vagrant_build"
+      override.ssh.username = "ubuntu"
+      override.ssh.private_key_path = "~/.ssh/aws/vagrant_build.pem"
+      override.nfs.functional = false
+      aws.tags = { "Name" => "vagrant ubuntu precise plugin build" }
+      aws.security_groups = "vagrant_cfy_build"
+    end
+    ubuntu_precise.vm.synced_folder "../", "/packaging", create: true
+    ubuntu_precise.vm.provision "shell" do |s|
+      s.path = "provision_plugin.sh"
+      s.args = "#{GITHUB_USERNAME} #{GITHUB_PASSWORD} #{AWS_ACCESS_KEY_ID} #{AWS_ACCESS_KEY} #{PLUGIN_NAME} #{PLUGIN_TAG_NAME} #{PLUGIN_S3_FOLDER}"
+      s.privileged = false
+    end
+  end
+
+  config.vm.define "windows_agent_plugin_wheel" do |windows|
+    windows.vm.box = "dummy"
+    windows.vm.box_url = "https://github.com/mitchellh/vagrant-aws/raw/master/dummy.box"
+    windows.vm.guest = :windows
+    windows.vm.provider :aws do |aws, override|
+      aws.access_key_id = AWS_ACCESS_KEY_ID
+      aws.secret_access_key = AWS_ACCESS_KEY
+      # this a pre-baked AMI, not pure base image
+      aws.ami = "ami-118ee566"
+      aws.region = "eu-west-1"
+      aws.instance_type = "m3.medium"
+      aws.keypair_name = "vagrant_build"
+      override.ssh.username = "Administrator"
+      override.ssh.private_key_path = "~/.ssh/aws/vagrant_build.pem"
+      override.nfs.functional = false
+      aws.tags = { "Name" => "vagrant windows plugin build" }
+      aws.security_groups = "vagrant_windows"
+    end
+    windows.vm.synced_folder "../", "/home/Administrator/packaging"
+    # shell provisioning uses bash, so use cmd to run batch script
+    windows.vm.provision "shell" do |shell|
+      shell.path = 'provision_plugin.sh'
+      shell.args = "#{GITHUB_USERNAME} #{GITHUB_PASSWORD} #{AWS_ACCESS_KEY_ID} #{AWS_ACCESS_KEY} #{PLUGIN_NAME} #{PLUGIN_TAG_NAME} #{PLUGIN_S3_FOLDER}"
+      shell.privileged = false
+    end
+  end
+
+end
